@@ -1,0 +1,18 @@
+providers:
+  groq:
+    base_url: https://api.groq.com/openai/v1/chat/completions
+    models:
+      - api_name: llama-3.3-70b-versatile
+        display_name: Llama 3.3 70b
+      - api_name: openai/gpt-oss-120b
+        display_name: GPT OSS 120b
+      - api_name: moonshotai/kimi-k2-instruct
+        display_name: Kimi K2
+      - api_name: moonshotai/kimi-k2-instruct-0905
+        display_name: Kimi K2 0905
+      - api_name: qwen/qwen3-32b
+        display_name: Qwen3 32b
+    tokens: 
+      - token: abc
+      - token: def
+      - token: ghi
