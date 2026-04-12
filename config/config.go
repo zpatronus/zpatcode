@@ -7,9 +7,12 @@ import (
 )
 
 type Config struct {
-	LLMProviders  map[string]LLMProviderConfig `yaml:"llm_providers"`
-	LLMMaxRetries int                          `yaml:"llm_max_retries"`
-	LLMTimeoutSec int                          `yaml:"llm_timeout_sec"`
+	LLMProviders        map[string]LLMProviderConfig `yaml:"llm_providers"`
+	LLMMaxRetries       int                          `yaml:"llm_max_retries"`
+	LLMTimeoutSec       int                          `yaml:"llm_timeout_sec"`
+	InteractionMaxTurn  int                          `yaml:"interaction_max_turn"`
+	ToolUseTimeout      int                          `yaml:"tool_use_timeout"`
+	MaxToolOutputLength int                          `yaml:"max_tool_output_length"`
 }
 
 type LLMProviderConfig struct {
