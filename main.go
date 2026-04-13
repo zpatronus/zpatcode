@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gookit/color"
 	"github.com/zpatronus/zpatcode/config"
 	"github.com/zpatronus/zpatcode/llm_client"
 )
@@ -26,7 +27,7 @@ func main() {
 		os.Exit(1)
 	}
 	client := llm_client.New(cfg)
-	fmt.Println("zpat >> AI agent (Ctrl+C to quit)")
+	color.Cyan.Println("zpat >> AI agent (Ctrl+C to quit)")
 	scanner := bufio.NewScanner(os.Stdin)
 
 	history := []llm_client.Message{
@@ -34,7 +35,7 @@ func main() {
 	}
 
 	for {
-		fmt.Print("\033[36mzpat >> \033[0m")
+		color.Cyan.Print("zpat >> ")
 		if !scanner.Scan() {
 			break
 		}
@@ -50,7 +51,7 @@ func main() {
 			req := llm_client.Request{Messages: history}
 			result := <-client.Chat(context.Background(), req)
 			if result.Err != nil {
-				fmt.Printf("\033[31mError: %v\033[0m\n", result.Err)
+				color.Red.Printf("Error: %v\n", result.Err)
 				break
 			}
 
@@ -123,7 +124,7 @@ func executeToolCalls(cfg *config.Config, tools []ToolUse) []map[string]any {
 	var results []map[string]any
 	for _, tool := range tools {
 		if !confirmRun(tool.Command) {
-			fmt.Println("\033[31mSkipped.\033[0m")
+			color.Red.Println("Skipped.")
 			results = append(results, map[string]any{
 				"type":        "tool_result",
 				"tool_use_id": tool.ID,
@@ -132,12 +133,11 @@ func executeToolCalls(cfg *config.Config, tools []ToolUse) []map[string]any {
 			continue
 		}
 		output := runBash(cfg, tool.Command)
-		gray := "\033[90m"
-		reset := "\033[0m"
+		gray := color.Gray
 		if len(output) > 50 {
-			fmt.Print(gray, "Result preview: ", output[:50], " ...", reset, "\n")
+			gray.Printf("Result preview: %s ...\n", output[:50])
 		} else {
-			fmt.Print(gray, "Result preview: ", output, reset, "\n")
+			gray.Printf("Result preview: %s\n", output)
 		}
 		results = append(results, map[string]any{
 			"type":        "tool_result",
@@ -149,8 +149,8 @@ func executeToolCalls(cfg *config.Config, tools []ToolUse) []map[string]any {
 }
 
 func confirmRun(command string) bool {
-	fmt.Printf("\033[33m$ %s\033[0m\n", command)
-	fmt.Print("\033[33mRun this command? [Y/n]: \033[0m")
+	color.Yellow.Printf("$ %s\n", command)
+	color.Yellow.Print("Run this command? [Y/n]: ")
 	scanner := bufio.NewScanner(os.Stdin)
 	if !scanner.Scan() {
 		return false
