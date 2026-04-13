@@ -52,35 +52,31 @@ func main() {
 			break
 		}
 		query = strings.TrimSpace(query)
-
-		if query == "" || query == "q" || query == "exit" {
+		if query == "" {
+			continue
+		}
+		if query == "q" || query == "exit" {
 			break
 		}
-
 		history = append(history, llm_client.Message{Role: "user", Content: query})
 
 		for turn := 0; turn < cfg.InteractionMaxTurn; turn++ {
+			// loop until no more tool use
 			req := llm_client.Request{Messages: history}
 			result := <-client.Chat(context.Background(), req)
 			if result.Err != nil {
 				color.Red.Printf("Error: %v\n", result.Err)
 				break
 			}
-
 			history = append(history, llm_client.Message{Role: "assistant", Content: result.Response})
-
 			// color.Gray.Println("%s", result.Response)
-
 			tools := parseToolUses(result.Response)
-
 			if len(tools) == 0 {
 				fmt.Println(result.Response)
 				break
 			}
-
 			fmt.Printf("\n[%d tool call(s)]\n", len(tools))
 			results := executeToolCalls(cfg, tools, rl)
-
 			var parts []string
 			for _, r := range results {
 				parts = append(parts, fmt.Sprintf("Tool: %s\nOutput:\n%s", r["tool_use_id"], r["content"]))

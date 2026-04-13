@@ -108,8 +108,9 @@ func (c *Client) tryRequest(ctx context.Context, providerName, providerBaseURL, 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	payload := map[string]any{
-		"model":    modelAPIName,
-		"messages": messages,
+		"model":       modelAPIName,
+		"messages":    messages,
+		"temperature": 0.6,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
