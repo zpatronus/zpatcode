@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -9,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chzyer/readline"
 	"github.com/gookit/color"
 	"github.com/zpatronus/zpatcode/config"
 	"github.com/zpatronus/zpatcode/llm_client"
@@ -28,18 +28,30 @@ func main() {
 	}
 	client := llm_client.New(cfg)
 	color.Cyan.Println("zpat >> AI agent (Ctrl+C to quit)")
-	scanner := bufio.NewScanner(os.Stdin)
+
+	promptStr := color.Cyan.Sprint("zpat >> ")
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:          promptStr,
+		HistoryFile:     "/tmp/zpatcode_history",
+		InterruptPrompt: "^C",
+		EOFPrompt:       "exit",
+	})
+	if err != nil {
+		fmt.Printf("Error initializing readline: %v\n", err)
+		os.Exit(1)
+	}
+	defer rl.Close()
 
 	history := []llm_client.Message{
 		{Role: "system", Content: systemPrompt()},
 	}
 
 	for {
-		color.Cyan.Print("zpat >> ")
-		if !scanner.Scan() {
+		query, err := rl.Readline()
+		if err != nil {
 			break
 		}
-		query := strings.TrimSpace((scanner.Text()))
+		query = strings.TrimSpace(query)
 
 		if query == "" || query == "q" || query == "exit" {
 			break
@@ -57,6 +69,8 @@ func main() {
 
 			history = append(history, llm_client.Message{Role: "assistant", Content: result.Response})
 
+			// color.Gray.Println("%s", result.Response)
+
 			tools := parseToolUses(result.Response)
 
 			if len(tools) == 0 {
@@ -65,7 +79,7 @@ func main() {
 			}
 
 			fmt.Printf("\n[%d tool call(s)]\n", len(tools))
-			results := executeToolCalls(cfg, tools)
+			results := executeToolCalls(cfg, tools, rl)
 
 			var parts []string
 			for _, r := range results {
@@ -95,13 +109,13 @@ func parseToolUses(content string) []ToolUse {
 	var cmd strings.Builder
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "<tool_use>") || strings.HasPrefix(trimmed, "```bash") || strings.HasPrefix(trimmed, "```sh") {
+		if strings.HasPrefix(trimmed, "<tool_use>") || strings.HasPrefix(trimmed, "```bash") || strings.HasPrefix(trimmed, "```sh") || strings.HasPrefix(trimmed, "<bash>") {
 			inBlock = true
 			blockID++
 			cmd.Reset()
 			continue
 		}
-		if strings.HasPrefix(trimmed, "</tool_use>") || strings.HasPrefix(trimmed, "```") {
+		if strings.HasPrefix(trimmed, "</tool_use>") || strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "</bash>") {
 			if inBlock && cmd.Len() > 0 {
 				tools = append(tools, ToolUse{
 					ID:      fmt.Sprintf("tool_%d", blockID),
@@ -120,15 +134,16 @@ func parseToolUses(content string) []ToolUse {
 	return tools
 }
 
-func executeToolCalls(cfg *config.Config, tools []ToolUse) []map[string]any {
+func executeToolCalls(cfg *config.Config, tools []ToolUse, rl *readline.Instance) []map[string]any {
 	var results []map[string]any
 	for _, tool := range tools {
-		if !confirmRun(tool.Command) {
+		userApproval, reason := confirmRun(tool.Command, rl)
+		if !userApproval {
 			color.Red.Println("Skipped.")
 			results = append(results, map[string]any{
 				"type":        "tool_result",
 				"tool_use_id": tool.ID,
-				"content":     "User denied execution",
+				"content":     reason,
 			})
 			continue
 		}
@@ -148,18 +163,23 @@ func executeToolCalls(cfg *config.Config, tools []ToolUse) []map[string]any {
 	return results
 }
 
-func confirmRun(command string) bool {
+func confirmRun(command string, rl *readline.Instance) (bool, string) {
 	color.Yellow.Printf("$ %s\n", command)
-	color.Yellow.Print("Run this command? [Y/n]: ")
-	scanner := bufio.NewScanner(os.Stdin)
-	if !scanner.Scan() {
-		return false
+	rl.SetPrompt(color.Yellow.Sprint("Run this command? [Enter=yes; n=no, or type rejection reason]: "))
+	rl.Refresh()
+	answer, err := rl.Readline()
+	rl.SetPrompt(color.Cyan.Sprint("zpat >> "))
+	if err != nil {
+		return false, "Agent error. Cannot get user approval"
 	}
-	answer := strings.ToLower(strings.TrimSpace(scanner.Text()))
-	if answer == "n" || answer == "no" {
-		return false
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	if answer == "n" {
+		return false, "User denied execution"
 	}
-	return true
+	if answer == "" {
+		return true, ""
+	}
+	return false, answer
 }
 
 func runBash(cfg *config.Config, command string) string {

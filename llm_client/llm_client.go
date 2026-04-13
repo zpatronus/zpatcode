@@ -160,7 +160,7 @@ func (c *Client) tryRequest(ctx context.Context, providerName, providerBaseURL, 
 	content := result.Choices[0].Message.Content
 	if strings.HasPrefix(content, "<think>") {
 		if end := strings.Index(content, "</think>"); end != -1 {
-			content = content[end+len("</think>"):]
+			content = strings.TrimSpace(content[end+len("</think>"):])
 		}
 	}
 
